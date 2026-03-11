@@ -1,5 +1,5 @@
 // Paste your generated Cloudflare URL here (No trailing slash!)
-const OLLAMA_TUNNEL_URL = "http://127.0.0.1:11434";
+const OLLAMA_TUNNEL_URL = "https://www.risyshiny.com";
 
 // TODO start: This is temporary. Events should be received from PostGreSQL database
 const taskBank = [
