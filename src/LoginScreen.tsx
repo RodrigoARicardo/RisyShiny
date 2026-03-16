@@ -1,12 +1,8 @@
 import React from 'react';
 import { globalStyles } from 'src/GlobalStyles';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import supabase from 'src/config/supabaseClient';
 
-interface userData{
-    user_email : string,
-    user_password : string,
-    login_timestamp : string
-}
 
 interface LoginScreenProps {
     onLogin: () => void;
@@ -16,34 +12,41 @@ interface LoginScreenProps {
 export default function LoginScreen({ onLogin, onGoToSignupScreen }: LoginScreenProps) {
     const [email, setEmail] = React.useState('');
     const [password, setPassword] = React.useState('');
+    const [errorMessage, setErrorMessage] = React.useState('');
+    const [loading, setLoading] = React.useState(false); // Will be used to prevent user from repeatedly calling database
+    
 
-    const sendToDatabase = async (userData : userData) => {
-        try {
-            //TODO: Change the link to the PostgreSQL link
-            const response = await fetch('https://link to change', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(userData),
-            });
-
-            const result = await response.json();
-            console.log("Success:", result);
-        } catch (error) {
-            console.error("Error connecting to PostgreSQL:", error);
+    const handleLogin = async () => {
+        setErrorMessage(''); // Make sure error handler is clear
+        
+        // TODO: Add visual feedback for error messages
+        
+        if (!email || !password) {
+            setErrorMessage("Please enter both email and password.");
+            return;
         }
-    };
 
-    const handleSubmit = () => {
-        const userLoginData = {
-            user_email: email,
-            user_password: password,
-            login_timestamp: new Date().toISOString()
-        };
+        setLoading(true);
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password: password,
+        });
+        setLoading(false);
 
-        sendToDatabase(userLoginData);
-        onLogin();
+        if (error) {
+            if (error.message.includes("Invalid login credentials")) {
+                setErrorMessage("Invalid email or password. Please try again.");
+            } else {
+                setErrorMessage(error.message);
+            }
+            return;
+        }
+
+        // If data.user exists, login was successful
+        if (data.user) {
+            console.log("Login successful for:", data.user.email);
+            onLogin(); 
+        }
     };
 
     return (
@@ -78,7 +81,7 @@ export default function LoginScreen({ onLogin, onGoToSignupScreen }: LoginScreen
                     />
                 </View>
 
-                <TouchableOpacity style={globalStyles.loginButton} onPress={handleSubmit}>
+                <TouchableOpacity style={globalStyles.loginButton} onPress={handleLogin} disabled={loading}>
                     <Text style={globalStyles.buttonText}>Start game</Text>
                 </TouchableOpacity>
                 

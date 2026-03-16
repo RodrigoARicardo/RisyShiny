@@ -1,6 +1,7 @@
 import React from 'react';
+import { Alert, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import supabase from 'src/config/supabaseClient';
 import { globalStyles } from 'src/GlobalStyles';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 
 interface UserData{
     user_email : string,
@@ -11,34 +12,44 @@ interface UserData{
 export default function SignupScreen({ onGoToLoginScreen }: { onGoToLoginScreen: () => void }) {
     const [email, setEmail] = React.useState('');
     const [password, setPassword] = React.useState('');
+    const [errorMessage, setErrorMessage] = React.useState('');
+    const [loading, setLoading] = React.useState(false); // Will be used to prevent user from repeatedly calling database
 
-    const sendToDatabase = async (UserData : UserData) => {
-        try {
-            //TODO: Change the link to the PostgreSQL link
-            const response = await fetch('https://link to change', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(UserData),
-            });
+    const handleSignUp = async () => {
 
-            const result = await response.json();
-            console.log("Success:", result);
-        } catch (error) {
-            console.error("Error connecting to PostgreSQL:", error);
+        setErrorMessage(''); // Make sure error handler is clear
+        
+        // TODO: Add visual feedback for error messages
+
+        if (!email || !password) {
+            setErrorMessage("Please fill in all fields.");
+            return;
         }
-    };
 
-    const handleSubmit = () => {
-        const userLoginData = {
-            user_email: email,
-            user_password: password,
-            login_timestamp: new Date().toISOString()
-        };
+        setLoading(true);
+        const { data, error } = await supabase.auth.signUp({
+            email: email,
+            password: password
+        });
+        setLoading(false);
 
-        sendToDatabase(userLoginData);
-        onGoToLoginScreen();
+        if (error) {
+            // Check if the error is about the user already existing
+            if (error.message.includes("already registered")) {
+            setErrorMessage("This email/username is already taken.");
+            } else {
+            setErrorMessage(error.message);
+            }
+            return;
+        }
+
+        if (data.user) {
+            Alert.alert(
+                "Success!", 
+                "Check your email for a confirmation link!",
+                [{ text: "OK", onPress: () => onGoToLoginScreen() }]
+            );
+        }
     };
 
     return (
@@ -73,7 +84,7 @@ export default function SignupScreen({ onGoToLoginScreen }: { onGoToLoginScreen:
                     />
                 </View>
 
-                <TouchableOpacity style={globalStyles.loginButton} onPress={handleSubmit}>
+                <TouchableOpacity style={globalStyles.loginButton} onPress={handleSignUp}>
                     <Text style={globalStyles.buttonText}>Start game</Text>
                 </TouchableOpacity>
 
