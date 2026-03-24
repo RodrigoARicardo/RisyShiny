@@ -30,3 +30,6 @@ yarn-error.log*
 # expo
 expo-env.d.ts
 *.js
+.expo/
+android/build/
+bin/
