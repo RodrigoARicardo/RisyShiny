@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal, ActivityIndicator } from 'react-native';
 import supabase from 'src/config/supabaseClient';
 import { getTaskDifficulty, getRejudgedTaskDifficulty } from 'src/AIJudge';
+import { notificationService } from 'src/notifications/NotificationService';
 
 interface AIDataState {
     score?: number;
@@ -155,6 +156,30 @@ export default function CalendarScreen() {
                         setEventIds(prev => ({...prev, [hour]: data.id}));
                         currentEventId = data.id; // Capture the new id for the AI to use
                     }
+                }
+
+                // Notify user later to start task
+                try {
+                    await notificationService.scheduleNotify({
+                        title: `Start task for hour: ${start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`,
+                        body: `Your task, ${text}, starts now!`,
+                        at: start,
+                        data: { path: '/(tabs)' } // Allows tapping the notification to route back to the app
+                    });
+                } catch (notifyError) {
+                    console.error("Failed to schedule \"start task\" notification:", notifyError);
+                }
+
+                // Notify user later to claim the task's points
+                try {
+                    await notificationService.scheduleNotify({
+                        title: `Claim task points for hour: ${end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`,
+                        body: `Your task, ${text}, is complete. Come claim your points!`,
+                        at: end,
+                        data: { path: '/(tabs)' } // Allows tapping the notification to route back to the app
+                    });
+                } catch (notifyError) {
+                    console.error("Failed to schedule \"claim points\" notification:", notifyError);
                 }
 
                 // Fetch the AI data on save, and put it in Supabase
