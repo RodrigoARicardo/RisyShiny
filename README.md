@@ -1,50 +1,24 @@
-# Welcome to your Expo app 👋
+Setup and run app guide for devs:
+1. Install Android Studio with Android SDK and emulator
+2. Install Adoptium Temurin JDK 17 - LTS: https://adoptium.net/temurin/releases?version=17&os=any&arch=any
+3. Setup up environment variable ANDROID_HOME: check ANDROID_HOME setup section.
+4. Restart IDE
+5. Run in Powershell: npm install
+6. Create .env folder with our secret content.
+7. Run in Powershell: npx expo run:android
+8. Press 'a' and 'enter'
+9. Find app with sun icon on emulated device and launch it.
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+ANDROID_HOME setup:
+1. Find your SDK Path: Open Android Studio, go to Settings (or Preferences) > Languages & Frameworks > Android SDK. Look for the Android SDK Location at the top.
+Common default: C:\Users\YourUsername\AppData\Local\Android\Sdk
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+2. Open Environment Variables: Search for "Edit the system environment variables" in your Windows search bar.
+3. Create ANDROID_HOME:
+4. Under User variables, click New.
+5. Set 'Variable name': ANDROID_HOME
+6. Set 'Variable value': (Paste your SDK path from Step 1).
+7. Find the Path variable in the same "User variables" list and click Edit.
+8. Click New and add: %ANDROID_HOME%\platform-tools
+9. Click New and add: %ANDROID_HOME%\emulator
+10. Click 'okay'.
