@@ -15,9 +15,21 @@ jest.mock('src/notifications/NotificationService', () => ({
 }));
 
 // 2. Mock the AI Judge
+// Ensure this path MATCHES exactly what is in your CalendarScreen.tsx
 jest.mock('src/AIJudge', () => ({
-    getTaskDifficulty: jest.fn(),
-    getRejudgedTaskDifficulty: jest.fn(),
+    getTaskDifficulty: jest.fn().mockImplementation((task) => {
+        console.log("Mock AI called for:", task); // Add this to see if it's even firing
+        return Promise.resolve({ 
+            score: 2, 
+            reasoning: "Mocked Reasoning", 
+            AIExecuted: true 
+        });
+    }),
+    getRejudgedTaskDifficulty: jest.fn().mockResolvedValue({ 
+        score: 5, 
+        reasoning: "Court Appeal Success", 
+        AIExecuted: true 
+    }),
 }));
 
 // 3. Mock Supabase
