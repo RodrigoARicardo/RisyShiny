@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal,
 import supabase from 'src/config/supabaseClient';
 import { getTaskDifficulty, getRejudgedTaskDifficulty } from 'src/AIJudge';
 import { notificationService } from 'src/notifications/NotificationService';
-import { useGlobalSearchParams, router } from 'expo-router';
+import { router } from 'expo-router';
 
 interface AIDataState {
     score?: number;
@@ -49,20 +49,30 @@ const SHOP_ITEMS = [
 ] as const;
 
 export default function CalendarScreen() {
-    // The Battle Mode State & Route params
-    const params = useGlobalSearchParams<{ battle?: string }>();
-    const [isBattleMode, setIsBattleMode] = React.useState(params?.battle === 'true');
+    // Until DB loads: isBattleMode and setIsBattleMode will be false
+    const [isBattleMode, setIsBattleMode] = React.useState(false);
 
-    React.useEffect(() => {
-        if (params?.battle === 'true') {
-            setIsBattleMode(true);
-        }
-    }, [params?.battle]);
+    const handleEndMatch = async () => {
+        // Save the previous state in case the DB connection fails
+        const previousState = isBattleMode;
 
-    const handleEndMatch = () => {
+        // Update UI immediately
         setIsBattleMode(false);
-        if (router.setParams) {
-            router.setParams({ battle: '' });
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { error } = await supabase.from('profiles')
+                .update({ is_in_multiplayer_mode: false })
+                .eq('id', user.id);
+
+            // If the DB connection fails, restore mode
+            if (error) {
+                setIsBattleMode(previousState);
+                Alert.alert("DB connection failed", "Could not switch to battle mode.");
+                console.error(error.message);
+            } else {
+                if (router.setParams) router.setParams({ battle: '' });
+            }
         }
     };
 
@@ -157,6 +167,33 @@ export default function CalendarScreen() {
     const [walls, setWalls] = React.useState<string[]>([]);
     const [spawnedWallDates, setSpawnedWallDates] = React.useState<string[]>([]);
 
+    // Flag to prevent overwriting DB on the initial load
+    const hasLoadedState = React.useRef(false);
+    const saveGameStateRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Synchronize point deductions with the database
+    const deductPoints = async (item_cost: number) => {
+        // Save the previous state in case the DB connection fails
+        const previousGlobalPoints = globalPoints;
+
+        // Update UI immediately
+        setGlobalPoints(prev => prev - item_cost);
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { error } = await supabase.rpc('buy_item', {
+                item_cost: item_cost
+            });
+            if (error) {
+                console.error("Failed to deduct points:", error.message);
+                setGlobalPoints(previousGlobalPoints);
+                Alert.alert("DB connection failed", "Purchase could not be done. Points restored.");
+                return false; // Transaction failed
+            }
+            return true; // Transaction succeeded
+        }
+    };
+
     // Dynamically calculate the Y pixel offset based on the interleaved row heights
     const getRowTopPos = React.useCallback((rowIndex: number) => {
         let top = 0;
@@ -215,6 +252,7 @@ export default function CalendarScreen() {
             const fetchedRoutines: Record<string, string> = {};
             const fetchedIds: Record<string, string> = {};
             const fetchedAIData: Record<string, AIDataState> = {};
+            const fetchedDebatedKeys: string[] = [];
 
             data.forEach(event => {
                 const d = new Date(event.start_time);
@@ -229,11 +267,19 @@ export default function CalendarScreen() {
                     reasoning: event.description,
                     has_menu_open: event.has_menu_open
                 };
+
+                if (event.has_been_appealed) {
+                    fetchedDebatedKeys.push(key);
+                }
             });
 
             setRoutines(fetchedRoutines);
             setEventIds(fetchedIds);
             setAIData(fetchedAIData);
+
+            if (fetchedDebatedKeys.length > 0) {
+                setDebatedKeys(prev => Array.from(new Set([...prev, ...fetchedDebatedKeys])));
+            }
         }
     };
 
@@ -247,7 +293,7 @@ export default function CalendarScreen() {
 
                 const { data, error } = await supabase
                     .from('profiles')
-                    .select('global_score, bedtime')
+                    .select('global_score, bedtime, tactical_game_state, is_in_multiplayer_mode')
                     .eq('id', user.id)
                     .single();
 
@@ -259,11 +305,64 @@ export default function CalendarScreen() {
                 if (data) {
                     if (data.global_score !== undefined) setGlobalPoints(data.global_score);
                     if (data.bedtime !== undefined && data.bedtime !== null) setUserBedtime(data.bedtime);
+                    if (data.is_in_multiplayer_mode !== undefined && data.is_in_multiplayer_mode !== null) {
+                        setIsBattleMode(data.is_in_multiplayer_mode);
+                    }
+
+                    // Hydrate game state from DB
+                    if (data.tactical_game_state) {
+                        const state = data.tactical_game_state as any;
+                        if (state.towers) setTowers(state.towers);
+                        if (state.enemies) {
+                            setEnemies(state.enemies);
+                            // Ensure the ID counter prevents duplication when new enemies spawn
+                            const maxId = state.enemies.reduce((max: number, e: any) => Math.max(max, e.id), -1);
+                            enemyIdCounter.current = maxId + 1;
+                        }
+                        if (state.walls) setWalls(state.walls);
+                        if (state.spawnedWallDates) setSpawnedWallDates(state.spawnedWallDates);
+                    }
                 }
             }
+
+            // Now that data is loaded, allow the auto-saver to run on future state changes
+            hasLoadedState.current = true;
         };
         init().catch(console.error);
     }, []);
+
+    // Debounced Auto-Save for Game State
+    React.useEffect(() => {
+        if (!hasLoadedState.current) return;
+        if (saveGameStateRef.current) {
+            clearTimeout(saveGameStateRef.current);
+        }
+
+        saveGameStateRef.current = setTimeout(async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const gameState = {
+                towers,
+                enemies,
+                walls,
+                spawnedWallDates
+            };
+
+            const { error } = await supabase
+                .from('profiles')
+                .update({ tactical_game_state: gameState })
+                .eq('id', user.id);
+
+            if (error) {
+                console.error("Failed to sync game state to Database:", error.message);
+            }
+        }, 1500); // Wait 1.5 seconds after the last game state change before writing to DB
+
+        return () => {
+            if (saveGameStateRef.current) clearTimeout(saveGameStateRef.current);
+        };
+    }, [towers, enemies, walls, spawnedWallDates]);
 
     // Update the logical date if the bedtime settings change
     React.useEffect(() => {
@@ -317,7 +416,8 @@ export default function CalendarScreen() {
                             start_time: startTime,
                             end_time: endTime,
                             score: 0,
-                            has_menu_open: false
+                            has_menu_open: false,
+                            has_been_appealed: false
                         })
                         .select()
                         .single();
@@ -396,7 +496,7 @@ export default function CalendarScreen() {
                 setEventIds(prev => { const n = {...prev}; delete n[key]; return n; });
             }
 
-            // WALL LOGIC: Check if the column is completely filled after a save (only checks the visible hours)
+            // Check if the column is completely filled after a save and create a wall if so
             const colIdx = fourteenDays.indexOf(activeDate);
             if (colIdx !== -1 && !spawnedWallDates.includes(activeDate)) {
                 let full = true;
@@ -422,7 +522,7 @@ export default function CalendarScreen() {
                     }
                     setWalls(prev => [...prev, ...newWallTiles]);
                     setSpawnedWallDates(prev => [...prev, activeDate]);
-                    Alert.alert("Wall Formed!", "A defensive wall has spawned in this timeline!");
+                    Alert.alert("Wall formed!", "A defensive wall has spawned in this timeline!");
                 }
             }
 
@@ -437,6 +537,9 @@ export default function CalendarScreen() {
         const currentData = AIData[key] || {};
         const existingId = eventIds[key];
         const newMenuState = !currentData.has_menu_open;
+
+        // Do not allow the menu to expand before the event has been graded
+        if (!existingId) return;
 
         if (newMenuState) {
             Object.keys(AIData).forEach(k => {
@@ -604,14 +707,20 @@ export default function CalendarScreen() {
         const key = `${activeDate}_${hour}`;
         const existingId = eventIds[key];
 
-        // Tagging logic for the success synergy
+        // Capture variable states before changing anything
+        const prevPoints = globalPoints;
+        const prevRoutines = { ...routines };
+        const prevAIData = { ...AIData };
+        const prevEventIds = { ...eventIds };
+
+        // Multiplayer: Tag logic
         const isTagged = routines[key]?.includes('@');
         const oppTask = (isBattleMode && isOppAwake(hour)) ? getMockOpponentTask(key, hour) : null;
 
         let pointsEarned = AIData[key]?.score || 0;
         let isSynergy = false;
 
-        // If both players tagged each other and successfully completed their tasks
+        // Multiplayer: If both players tagged each other and successfully completed their tasks
         if (isTagged && oppTask?.isTagged) {
             pointsEarned += oppTask.score;
             isSynergy = true;
@@ -631,45 +740,51 @@ export default function CalendarScreen() {
             Alert.alert("Synergy Activated!", `You and your tagged partner both succeeded! Earned ${pointsEarned} points total.`);
         }
 
-        // Trigger a turn: The enemies move when a task is checked in (flagged true for the hesitation mechanic)
+        // Trigger a turn: The enemies move when a task is checked in
         tickEnemies(true);
 
-        if (existingId) {
-            try {
-                if (isSynergy) {
-                    // Update the database to have the combined score so the RPC function reads the right value
-                    await supabase.from('events').update({ score: pointsEarned }).eq('id', existingId);
-                }
-
-                // Call the database function to handle the global points math
-                // TODO: Handle cheating if a user just calls the database to create an event with a very large point value
-                const { error: error } = await supabase.rpc('score_task', {
-                    target_event_id: existingId
-                });
-
-                if (error) {
-                    console.error("Failed to score task via DB:", error.message);
-                } else {
-                    console.log("Successfully saved points via database function.");
-                }
-
-                // Delete the event from the calendar
-                const { error: errorDelete } = await supabase
+        try {
+            // If synergy, update with the bonus score (user + mock opponent) first
+            if (isSynergy) {
+                const {error: updateError} = await supabase
                     .from('events')
-                    .delete()
+                    .update({score: pointsEarned})
                     .eq('id', existingId);
 
-                if (errorDelete) {
-                    console.error("Failed to delete event:", errorDelete.message);
-                } else {
-                    console.log("Event successfully cleared from database.");
-                }
-
-            } catch (e) {
-                console.error("Failed to clear completed task or update points:", e);
+                if (updateError) throw updateError;
             }
+
+            // Call the RPC to move points to the profile
+            const {error: rpcError} = await supabase.rpc('score_task', {
+                target_event_id: existingId
+            });
+            if (rpcError) throw rpcError;
+
+            // Delete the event
+            const {error: deleteError} = await supabase
+                .from('events')
+                .delete()
+                .eq('id', existingId);
+
+            if (deleteError) throw deleteError;
+
+            console.log("Success: Task completed and synced.");
+
+        } catch (e) {
+            // If any step above fails, revert everything
+            console.error("Database connection failed, rolling back:", e);
+
+            setGlobalPoints(prevPoints);
+            setRoutines(prevRoutines);
+            setAIData(prevAIData);
+            setEventIds(prevEventIds);
+
+            Alert.alert(
+                "Database connection error",
+                "Your task and points have been restored."
+            );
         }
-    };
+    }
 
     const handleSubmitDebate = async () => {
         if (debateKey === null || !debateText.trim()) return;
@@ -693,7 +808,8 @@ export default function CalendarScreen() {
                 .from('events')
                 .update({
                     score: result.score === -1 ? AIData[debateKey].score : result.score,
-                    description: result.reasoning
+                    description: result.reasoning,
+                    has_been_appealed: true
                 })
                 .eq('id', eventId);
             if (error) {
@@ -766,7 +882,7 @@ export default function CalendarScreen() {
         return () => clearInterval(interval);
     }, [currentLogicalDate, getLogicalToday, handleAdvanceTime]);
 
-    const handleGridCellPress = (dateStr: string, hour: number) => {
+    const handleGridCellPress = async (dateStr: string, hour: number) => {
         const key = `${dateStr}_${hour}`;
         const now = Date.now();
         const DOUBLE_PRESS_DELAY = 300;
@@ -820,11 +936,13 @@ export default function CalendarScreen() {
             const score = AIData[key]?.score;
             if (routines[key] && score !== undefined && score > 0 && !towers[key]) {
                 if (globalPoints >= selectedShopItem.cost) {
-                    setGlobalPoints(prev => prev - selectedShopItem.cost);
-                    setTowers(prev => ({
-                        ...prev, [key]: { type: selectedShopItem.type, ammo: score }
-                    }));
-                    setSelectedShopItem(null);
+                    const success = await deductPoints(selectedShopItem.cost);
+                    if (success) {
+                        setTowers(prev => ({
+                            ...prev, [key]: { type: selectedShopItem.type, ammo: score }
+                        }));
+                        setSelectedShopItem(null);
+                    }
                 } else {
                     Alert.alert("Not enough points", `You need ${selectedShopItem.cost} points.`);
                 }
@@ -834,7 +952,6 @@ export default function CalendarScreen() {
         } else if (towers[key]) {
             setActiveTowerKey(prev => prev === key ? null : key);
         } else {
-            // Tapping an event no longer switches to 1D mode automatically unless it is a tower action
             setActiveTowerKey(null);
         }
     };
@@ -846,7 +963,7 @@ export default function CalendarScreen() {
         setEditingKey(`${dateStr}_${hour}`);
     };
 
-    const handleEnemyPress = (enemy: EnemyState) => {
+    const handleEnemyPress = async (enemy: EnemyState) => {
         if (selectedShopItem) {
             setSelectedShopItem(null);
             return;
@@ -868,7 +985,8 @@ export default function CalendarScreen() {
             return;
         }
 
-        setGlobalPoints(prev => prev - dist);
+        const success = await deductPoints(dist);
+        if (!success) return; // If the database connection fails, restore the original game state
 
         setTowers(prev => {
             const next = { ...prev };
@@ -1212,7 +1330,7 @@ export default function CalendarScreen() {
                                                 activeOpacity={0.8}
                                                 onPress={() => {
                                                     if (debatedKeys.includes(key)) {
-                                                        alert("Sorry, but the case is closed.");
+                                                        Alert.alert("Sorry, but the case is closed.");
                                                     } else {
                                                         setDebateKey(key);
                                                     }

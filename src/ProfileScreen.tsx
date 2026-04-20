@@ -177,9 +177,22 @@ export default function App() {
       message: 'You have challenged TestProfile1 to a multiplayer battle. Prepare yourself!',
       confirmText: 'Ready',
       onCancel: () => setModalConfig({ visible: false }),
-      onConfirm: () => {
+      onConfirm: async () => {
         setModalConfig({ visible: false });
-        router.push({ pathname: '/(tabs)', params: { battle: 'true' } });
+
+        // Update the database to turn on multiplayer mode
+        if (user) {
+          const { error } = await supabase
+              .from('profiles')
+              .update({ is_in_multiplayer_mode: true })
+              .eq('id', user.id);
+          if (error) {
+            console.error("Failed to start battle:", error.message);
+            return; // Don't navigate to the calendar screen if DB retrieval unsuccessful
+          }
+        }
+        // Navigate to the calendar screen, since DB retrieval was successful
+        router.push('/(tabs)');
       }
     });
   };
