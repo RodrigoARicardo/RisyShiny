@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { runAuthRequest } from 'src/config/authErrorHandling';
 import supabase from 'src/config/supabaseClient';
 
 interface LoginScreenProps {
@@ -30,26 +31,21 @@ export default function LoginScreen({ onLogin, onGoToSignupScreen }: LoginScreen
       return;
     }
 
-    setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password: password,
+    await runAuthRequest({
+      action: 'login',
+      setLoading,
+      setErrorMessage,
+      request: () => supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      }),
+      onSuccess: (data) => {
+        if (data.user) {
+          console.log('Login successful for:', data.user.email);
+          onLogin();
+        }
+      },
     });
-    setLoading(false);
-
-    if (error) {
-      if (error.message.includes('Invalid login credentials')) {
-        setErrorMessage('Invalid email or password. Please try again.');
-      } else {
-        setErrorMessage(error.message);
-      }
-      return;
-    }
-
-    if (data.user) {
-      console.log('Login successful for:', data.user.email);
-      onLogin();
-    }
   };
 
   return (

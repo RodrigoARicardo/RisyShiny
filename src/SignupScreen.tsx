@@ -1,15 +1,16 @@
 import React from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  StyleSheet,
-  ActivityIndicator,
 } from 'react-native';
+import { runAuthRequest } from 'src/config/authErrorHandling';
 import supabase from 'src/config/supabaseClient';
 
 export default function SignupScreen({ onGoToLoginScreen }: { onGoToLoginScreen: () => void }) {
@@ -26,29 +27,24 @@ export default function SignupScreen({ onGoToLoginScreen }: { onGoToLoginScreen:
       return;
     }
 
-    setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email: email,
-      password: password,
+    await runAuthRequest({
+      action: 'signup',
+      setLoading,
+      setErrorMessage,
+      request: () => supabase.auth.signUp({
+        email: email.trim(),
+        password,
+      }),
+      onSuccess: (data) => {
+        if (data.user) {
+          Alert.alert(
+            'Success!',
+            'Check your email for a confirmation link!',
+            [{ text: 'OK', onPress: () => onGoToLoginScreen() }],
+          );
+        }
+      },
     });
-    setLoading(false);
-
-    if (error) {
-      if (error.message.includes('already registered')) {
-        setErrorMessage('This email is already registered.');
-      } else {
-        setErrorMessage(error.message);
-      }
-      return;
-    }
-
-    if (data.user) {
-      Alert.alert(
-        'Account Created!',
-        'Check your email for a confirmation link.',
-        [{ text: 'OK', onPress: () => onGoToLoginScreen() }],
-      );
-    }
   };
 
   return (
