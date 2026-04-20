@@ -1,63 +1,122 @@
 import {StyleSheet} from "react-native";
 
 export const globalStyles = StyleSheet.create({
-    appContainer: {
+    container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
-    },
-    appContainerCentered: {
-        flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: '#F5F5F5',
         justifyContent: 'center',
         alignItems: 'center',
+        padding: 24,
     },
-    loginBox: {
-        width: '85%',
-        backgroundColor: '#fff',
-        padding: 20,
-        borderRadius: 10,
+    card: {
+        width: '100%',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 28,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
     },
-    titleText: {
-        fontSize: 30,
-        fontWeight: 'bold',
-        marginBottom: 20,
-        textAlign: 'center',
+    logoWrapper: {
+        alignItems: 'center',
+        marginBottom: 28,
     },
-    headerText: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 20,
-        textAlign: 'center',
+    logoCircle: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: '#EBF4FF',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    logoEmoji: {
+        fontSize: 32,
+    },
+    appName: {
+        fontSize: 26,
+        fontWeight: '700',
+        color: '#1A1A1A',
+        letterSpacing: -0.5,
+    },
+    tagline: {
+        fontSize: 14,
+        color: '#888888',
+        marginTop: 4,
     },
     inputGroup: {
-        marginBottom: 15,
+        marginBottom: 16,
     },
     label: {
-        marginBottom: 5,
-        fontSize: 16,
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#1A1A1A',
+        marginBottom: 6,
     },
     input: {
+        backgroundColor: '#F5F5F5',
+        borderRadius: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        fontSize: 15,
+        color: '#1A1A1A',
         borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 5,
-        padding: 10,
-        fontSize: 16,
+        borderColor: '#EEEEEE',
     },
-    loginButton: {
-        backgroundColor: '#007bff',
-        padding: 15,
-        borderRadius: 5,
+    errorBox: {
+        backgroundColor: '#FFF0F0',
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#FFCDD2',
+    },
+    errorText: {
+        color: '#D32F2F',
+        fontSize: 13,
+    },
+    primaryButton: {
+        backgroundColor: '#4A90D9',
+        borderRadius: 14,
+        paddingVertical: 16,
         alignItems: 'center',
-        marginTop: 10,
+        marginTop: 4,
     },
-    buttonText: {
-        color: '#fff',
+    buttonDisabled: {
+        opacity: 0.6,
+    },
+    primaryButtonText: {
+        color: '#FFFFFF',
         fontSize: 16,
-        fontWeight: 'bold',
-    }
+        fontWeight: '700',
+    },
+    divider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 20,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#EEEEEE',
+    },
+    dividerText: {
+        marginHorizontal: 12,
+        fontSize: 13,
+        color: '#BDBDBD',
+    },
+    secondaryButton: {
+        borderRadius: 14,
+        paddingVertical: 16,
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: '#4A90D9',
+    },
+    secondaryButtonText: {
+        color: '#4A90D9',
+        fontSize: 16,
+        fontWeight: '600',
+    },
 });

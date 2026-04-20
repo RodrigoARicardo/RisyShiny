@@ -4,7 +4,17 @@ import CalendarScreen from 'src/CalendarScreen';
 import * as AIJudge from 'src/AIJudge';
 import { notificationService } from 'src/notifications/NotificationService';
 
-// 1. Mock the Notification Service
+// Mock React Navigation to instantly trigger useFocusEffect
+jest.mock('@react-navigation/native', () => {
+    const actualNav = jest.requireActual('@react-navigation/native');
+    const { useEffect } = require('react');
+    return {
+        ...actualNav,
+        useFocusEffect: jest.fn((callback) => useEffect(callback, [callback])),
+    };
+});
+
+// Mock the Notification Service
 jest.mock('src/notifications/NotificationService', () => ({
     notificationService: {
         initialize: jest.fn().mockResolvedValue(undefined),
@@ -14,15 +24,14 @@ jest.mock('src/notifications/NotificationService', () => ({
     }
 }));
 
-// 2. Mock the AI Judge
+// Mock the AI Judge
 jest.mock('src/AIJudge', () => ({
     getTaskDifficulty: jest.fn().mockResolvedValue({ score: 2, reasoning: "Mocked Reasoning", AIExecuted: true }),
     getRejudgedTaskDifficulty: jest.fn().mockResolvedValue({ score: 5, reasoning: "Court Appeal Success", AIExecuted: true }),
 }));
 
-// 3. The Bulletproof Supabase Mock
+// Supabase Mock
 jest.mock('src/config/supabaseClient', () => {
-    // This object allows infinite chaining (e.g., .from().select().eq().gte().lt())
     const chainable = {
         select: jest.fn().mockReturnThis(),
         insert: jest.fn().mockReturnThis(),
@@ -33,14 +42,10 @@ jest.mock('src/config/supabaseClient', () => {
         lt: jest.fn().mockReturnThis(),
 
         // When .single() is called at the end of a chain, it resolves with this data.
-        // We include both global_score (for the profile fetch) and id (for the insert fetch).
         single: jest.fn().mockResolvedValue({
             data: { global_score: 10, id: 'mock-event-123' },
             error: null
         }),
-
-        // MAGIC BULLET: If the chain itself is 'await'ed directly without .single(),
-        // JavaScript looks for this .then() method to resolve the Promise!
         then: jest.fn((resolve) => resolve({ data: [], error: null }))
     };
 

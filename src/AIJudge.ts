@@ -17,7 +17,7 @@ export async function getTaskDifficulty(taskFinished: string): Promise<AIJudgeRe
         });
         if (error) throw error;
         return data;
-    } catch (e) {
+    } catch {
         return { score: 0, reasoning: "Server connection lost. Practice your spells as the server connection restores.", AIExecuted: false };
     }
 }

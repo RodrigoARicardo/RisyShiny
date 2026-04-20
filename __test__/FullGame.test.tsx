@@ -1,11 +1,21 @@
 import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import {act, fireEvent, render, waitFor} from '@testing-library/react-native';
 import CalendarScreen from 'src/CalendarScreen';
 import supabase from 'src/config/supabaseClient';
 
-// --- Mocking External Dependencies ---
+// Mock React Navigation to instantly trigger useFocusEffect
+jest.mock('@react-navigation/native', () => {
+    const actualNav = jest.requireActual('@react-navigation/native');
+    const { useEffect } = require('react');
+    return {
+        ...actualNav,
+        useFocusEffect: jest.fn((callback) => useEffect(callback, [callback])),
+    };
+});
+
+// Mock External Dependencies
 jest.mock('src/config/supabaseClient', () => {
-    const mockSupabase = {
+    return {
         auth: {
             getUser: jest.fn(),
         },
@@ -20,7 +30,6 @@ jest.mock('src/config/supabaseClient', () => {
         delete: jest.fn().mockReturnThis(),
         rpc: jest.fn(),
     };
-    return mockSupabase;
 });
 
 jest.mock('src/AIJudge', () => ({

@@ -179,7 +179,7 @@ export default function StatsScreen() {
       return;
     }
 
-    // Past 7 days events (for bar chart)
+    // Past 7-day events (for bar chart)
     const sevenAgo = new Date();
     sevenAgo.setDate(sevenAgo.getDate() - 6);
     sevenAgo.setHours(0, 0, 0, 0);

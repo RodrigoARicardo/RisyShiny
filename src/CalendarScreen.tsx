@@ -1,5 +1,4 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { router, useGlobalSearchParams } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getRejudgedTaskDifficulty, getTaskDifficulty } from 'src/AIJudge';
