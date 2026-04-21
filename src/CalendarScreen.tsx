@@ -53,6 +53,7 @@ export default function CalendarScreen() {
     // Until DB loads: isBattleMode and setIsBattleMode will be false
     const [isBattleMode, setIsBattleMode] = React.useState(false);
     const [isAdmin, setIsAdmin] = React.useState(false);
+    const [adminDayOffset, setAdminDayOffset] = React.useState(0);
 
     const handleEndMatch = async () => {
         // Save the previous state in case the DB connection fails
@@ -124,11 +125,12 @@ export default function CalendarScreen() {
     // Calculates what "Today" is, keeping it on yesterday until the bedtime passes
     const getLogicalToday = React.useCallback(() => {
         const d = new Date();
+        d.setDate(d.getDate() + adminDayOffset);
         if (d.getHours() < userBedtime) {
             d.setDate(d.getDate() - 1);
         }
         return d;
-    }, [userBedtime]);
+    }, [userBedtime, adminDayOffset]);
 
     const [currentLogicalDate, setCurrentLogicalDate] = React.useState<string>(getLocalDateString(getLogicalToday()));
 
@@ -1076,29 +1078,6 @@ export default function CalendarScreen() {
                     </TouchableOpacity>
                 )}
 
-                {/* Advance Time Button (Admin only) */}
-                {isAdmin ? (
-                    <View style={styles.controls}>
-                        <TouchableOpacity
-                            style={styles.btnAdvance}
-                            onPress={() => {
-                                if (!isAdmin) return;
-
-                                // Calculate tomorrow based on the current logical date
-                                const [year, month, day] = currentLogicalDate.split('-').map(Number);
-                                const nextDate = new Date(year, month - 1, day + 1);
-                                const nextDateStr = getLocalDateString(nextDate);
-
-                                // Trigger your existing timeline shift logic
-                                handleAdvanceTime(currentLogicalDate);
-                                setCurrentLogicalDate(nextDateStr);
-                            }}
-                        >
-                            <Text style={styles.btnAdvanceText}>Advance 1 Day Ahead{'\n'}(Shift Calendar)</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : null}
-
                 {/* Global Points Display */}
                 <View style={styles.pointsContainer}>
                     <Text style={styles.pointsLabel}>Global Points</Text>
@@ -1109,6 +1088,31 @@ export default function CalendarScreen() {
             {viewMode === '2D' ? (
                 /* The 2D Grid Section */
                 <View style={styles.gridContainerWrapper}>
+
+                    {/* Advance Time Button (Admin only) */}
+                    {isAdmin && (
+                        <View style={styles.adminControlsBar}>
+                            <TouchableOpacity
+                                style={styles.btnAdvanceWide}
+                                onPress={() => {
+                                    // Calculate tomorrow based on the current logical date
+                                    const [year, month, day] = currentLogicalDate.split('-').map(Number);
+                                    const nextDate = new Date(year, month - 1, day + 1);
+
+                                    // Trigger your existing timeline shift logic
+                                    handleAdvanceTime(currentLogicalDate);
+                                    setAdminDayOffset(prev => prev + 1);
+
+                                    // If the user was viewing 'Today' in 1D mode, keep them on the new 'Today'
+                                    if (activeDate === currentLogicalDate) {
+                                        setActiveDate(getLocalDateString(nextDate));
+                                    }
+                                }}
+                            >
+                                <Text style={styles.btnAdvanceTextWide}>Advance one day Ahead (Shift Calendar)</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                     <ScrollView horizontal style={styles.gridContainer}>
                         <View>
                             {/* Headers for the 14 days */}
@@ -1617,6 +1621,27 @@ const styles = StyleSheet.create({
         fontSize: 9,
         textAlign: 'center',
         textTransform: 'uppercase'
+    },
+    adminControlsBar: {
+        padding: 8,
+        backgroundColor: '#e2e8f0', // Matches the 1D date banner background
+        alignItems: 'center',
+        borderBottomWidth: 1,
+        borderBottomColor: '#cbd5e1',
+    },
+    btnAdvanceWide: {
+        backgroundColor: '#3b82f6',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 8,
+        width: '100%',
+        alignItems: 'center',
+    },
+    btnAdvanceTextWide: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 12,
+        textTransform: 'uppercase',
     },
 
     gridCellActive: { backgroundColor: '#bde0fe' },
