@@ -7,152 +7,183 @@ import supabase from 'src/config/supabaseClient';
 import LoginScreen from 'src/LoginScreen';
 import SignupScreen from 'src/SignupScreen';
 
+// Defines the possible states for the unauthenticated view
 type AuthView = 'login' | 'signup';
 
 export default function TabLayout() {
   const router = useRouter();
+
+  // session states:
+  // undefined = checking auth status (loading)
+  // null = explicitly unauthenticated (show login/signup)
+  // Session object = authenticated (show main app tabs)
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [authView, setAuthView] = useState<AuthView>('login');
 
+  // Reset to the login screen whenever the user signs out
   useEffect(() => {
     if (session === null) {
       setAuthView('login');
     }
   }, [session]);
 
+  // Set up Supabase authentication listeners on mount
   useEffect(() => {
-    // Subscribe first so we don't miss the initial auth event
+    // 1. Subscribe to real-time auth events (e.g., user logs in, logs out, or token refreshes)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
     });
 
-    // Then hydrate with the current session
+    // 2. Fetch the initial session state when the app first loads
+    // This resolves the 'undefined' loading state to either null or a valid session
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
     });
 
+    // Cleanup the listener when the component unmounts to prevent memory leaks
     return () => subscription.unsubscribe();
   }, []);
 
-  // Splash / loading
+  // ==========================================
+  // RENDER PHASE 1: Loading State
+  // ==========================================
+  // Display a loading spinner while Supabase checks for an active session
   if (session === undefined) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#4A90D9" />
-      </View>
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color="#4A90D9" />
+        </View>
     );
   }
 
-  // Not authenticated — render auth screens
+  // ==========================================
+  // RENDER PHASE 2: Unauthenticated State
+  // ==========================================
+  // If no user is logged in, show the Auth screens instead of the tab navigator
   if (!session) {
     if (authView === 'login') {
       return (
-        <LoginScreen
-          onLogin={() => {}}
-          onGoToSignupScreen={() => setAuthView('signup')}
-        />
+          <LoginScreen
+              onLogin={() => {}} // Supabase auth listener automatically handles the state update on success
+              onGoToSignupScreen={() => setAuthView('signup')}
+          />
       );
     }
     return (
-      <SignupScreen
-        onGoToLoginScreen={() => setAuthView('login')}
-      />
+        <SignupScreen
+            onGoToLoginScreen={() => setAuthView('login')}
+        />
     );
   }
 
-  // Authenticated — render tab navigator
+  // ==========================================
+  // RENDER PHASE 3: Authenticated State
+  // ==========================================
+  // The user is logged in. Render the main app navigation.
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#4A90D9',
-        tabBarInactiveTintColor: '#BDBDBD',
-        tabBarStyle: styles.tabBar,
-        tabBarLabelStyle: styles.tabLabel,
-        headerShown: false,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconPill, focused && styles.iconPillActive]}>
-              <Ionicons
-                name={focused ? 'home' : 'home-outline'}
-                size={22}
-                color={color}
-              />
-            </View>
-          ),
-        }}
-      />
+      <Tabs
+          screenOptions={{
+            tabBarActiveTintColor: '#4A90D9',
+            tabBarInactiveTintColor: '#BDBDBD',
+            tabBarStyle: styles.tabBar,
+            tabBarLabelStyle: styles.tabLabel,
+            headerShown: false,
+          }}
+      >
+        {/* HOME TAB */}
+        <Tabs.Screen
+            name="index"
+            options={{
+              title: 'Home',
+              tabBarIcon: ({ color, focused }) => (
+                  <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+                    <Ionicons
+                        name={focused ? 'home' : 'home-outline'}
+                        size={22}
+                        color={color}
+                    />
+                  </View>
+              ),
+            }}
+        />
 
-      <Tabs.Screen
-        name="schedule"
-        options={{
-          title: 'Schedule',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'calendar' : 'calendar-outline'}
-              size={22}
-              color={color}
-            />
-          ),
-        }}
-      />
+          {/* BEDTIME TAB - Temporarily disabled to prevent timeline desync
+        <Tabs.Screen
+            name="bedtime"
+            options={{
+                title: 'Bedtime',
+                tabBarIcon: ({ color, focused }) => (
+                    <Ionicons
+                        name={focused ? 'moon' : 'moon-outline'}
+                        size={22}
+                        color={color}
+                    />
+                ),
+            }}
+        />
+        */}
 
-      <Tabs.Screen
-        name="add"
-        options={{
-          title: '',
-          tabBarButton: () => (
-            <TouchableOpacity
-              style={styles.addTabButton}
-              onPress={() => router.push('/modal')}
-              activeOpacity={0.85}
-            >
-              <View style={styles.addButton}>
-                <Ionicons name="add" size={28} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
-          ),
-        }}
-      />
 
-      <Tabs.Screen
-        name="stats"
-        options={{
-          title: 'Stats',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'bar-chart' : 'bar-chart-outline'}
-              size={22}
-              color={color}
-            />
-          ),
-        }}
-      />
+        {/* GAME TAB */}
+        <Tabs.Screen
+            name="game"
+            options={{
+              title: 'Game',
+              tabBarIcon: ({ color, focused }) => (
+                  <Ionicons
+                      name={focused ? 'game-controller' : 'game-controller-outline'}
+                      size={22}
+                      color={color}
+                  />
+              ),
+            }}
+        />
 
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'person' : 'person-outline'}
-              size={22}
-              color={color}
-            />
-          ),
-        }}
-      />
+        {/* STATS TAB */}
+        <Tabs.Screen
+            name="stats"
+            options={{
+              title: 'Stats',
+              tabBarIcon: ({ color, focused }) => (
+                  <Ionicons
+                      name={focused ? 'bar-chart' : 'bar-chart-outline'}
+                      size={22}
+                      color={color}
+                  />
+              ),
+            }}
+        />
 
-      {/* Hide legacy screens from tab bar */}
-      <Tabs.Screen name="explore" options={{ href: null }} />
-    </Tabs>
+        {/* PROFILE TAB */}
+        <Tabs.Screen
+            name="profile"
+            options={{
+              title: 'Profile',
+              tabBarIcon: ({ color, focused }) => (
+                  <Ionicons
+                      name={focused ? 'person' : 'person-outline'}
+                      size={22}
+                      color={color}
+                  />
+              ),
+            }}
+        />
+
+        {/* ========================================== */}
+        {/* HIDDEN / LEGACY SCREENS                      */}
+        {/* ========================================== */}
+        {/* Setting `href: null` prevents the screen from showing up in the bottom tab bar, */}
+        {/* but keeps it registered in the router so you can still navigate to it via code if needed. */}
+        <Tabs.Screen name="explore" options={{ href: null }} />
+        <Tabs.Screen name="schedule" options={{ href: null }} />
+        <Tabs.Screen name="add" options={{ href: null }} />
+      </Tabs>
   );
 }
 
+// ==========================================
+// STYLESHEET
+// ==========================================
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
@@ -172,6 +203,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  // The 'iconPill' styles create the highlighted background bubble behind the active Home icon
   iconPill: {
     paddingHorizontal: 14,
     paddingVertical: 3,
@@ -179,24 +211,5 @@ const styles = StyleSheet.create({
   },
   iconPillActive: {
     backgroundColor: '#EBF4FF',
-  },
-  addTabButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#4A90D9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-    shadowColor: '#4A90D9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
   },
 });
